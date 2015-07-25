@@ -1,0 +1,10 @@
+*~
+*.swp
+*.pyc
+*-journal
+
+/*\.egg-info
+/\.tox
+/virtenv
+
+/text.kmz

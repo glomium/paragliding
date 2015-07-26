@@ -3,12 +3,16 @@
 
 from __future__ import unicode_literals
 
+import argparse
 import numpy as np
 import re
+import os
 import xml.etree.ElementTree as ET
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
 from pytz import utc
-from zipfile import ZipFile, ZIP_DEFLATED
+from zipfile import ZipFile
+from zipfile import ZIP_DEFLATED
 from math import factorial
 
 class FlightLog(ET.ElementTree):
@@ -56,6 +60,15 @@ class FlightLog(ET.ElementTree):
                         d_folder.append(flight)
 
 class Flight(ET.Element):
+    colors = [
+        (-3.0,   0,   0, 128),
+        (-1.0,   0, 128, 128),
+        ( 0.0, 200, 200, 200),
+        ( 1.0, 186, 186,   0),
+        ( 3.0, 222,   0,   0),
+        ( 6.0, 186,   0, 186),
+    ]
+
     def __init__(self, root=None):
         super(Flight, self).__init__('Folder')
 
@@ -72,14 +85,6 @@ class Flight(ET.Element):
         self.barheight = []
         self.cart = []
 
-        self.colors = [
-            (-3.0,   0,   0, 128),
-            (-1.0,   0, 128, 128),
-            ( 0.0, 200, 200, 200),
-            ( 1.0, 186, 186,   0),
-            ( 3.0, 222,   0,   0),
-            ( 6.0, 186,   0, 186),
-        ]
 
     def __str__(self):
         r = self.tag
@@ -92,8 +97,10 @@ class Flight(ET.Element):
         return ET.Element(tag, attrib)
 
     def get_color(self, value, alpha=255):
+
         j = None
         k = None
+
         for c in range(len(self.colors)):
             if self.colors[c][0] <= value:
                 if j == None or self.colors[j] <= self.colors[c]:
@@ -101,28 +108,31 @@ class Flight(ET.Element):
             if self.colors[c][0] >= value:
                 if k == None or self.colors[k] >= self.colors[c]:
                     k = c
+
         if j != None and k != None and j != k:
-            cdata = [self.colors[j][0],self.colors[k][0]]
-            mix = (value-min(cdata))/(max(cdata)-min(cdata))
+            cdata = [self.colors[j][0], self.colors[k][0]]
+            mix = (value - min(cdata)) / (max(cdata) - min(cdata))
 
             if self.colors[j][0] > self.colors[k][0]:
-                r = int(mix*self.colors[j][1] + self.colors[k][1] - mix*self.colors[k][1])
-                g = int(mix*self.colors[j][2] + self.colors[k][2] - mix*self.colors[k][2])
-                b = int(mix*self.colors[j][3] + self.colors[k][3] - mix*self.colors[k][3])
+                r = int(mix * self.colors[j][1] + self.colors[k][1] - mix * self.colors[k][1])
+                g = int(mix * self.colors[j][2] + self.colors[k][2] - mix * self.colors[k][2])
+                b = int(mix * self.colors[j][3] + self.colors[k][3] - mix * self.colors[k][3])
             else:
-                r = int(mix*self.colors[k][1] + self.colors[j][1] - mix*self.colors[j][1])
-                g = int(mix*self.colors[k][2] + self.colors[j][2] - mix*self.colors[j][2])
-                b = int(mix*self.colors[k][3] + self.colors[j][3] - mix*self.colors[j][3])
+                r = int(mix * self.colors[k][1] + self.colors[j][1] - mix * self.colors[j][1])
+                g = int(mix * self.colors[k][2] + self.colors[j][2] - mix * self.colors[j][2])
+                b = int(mix * self.colors[k][3] + self.colors[j][3] - mix * self.colors[j][3])
+
         elif j != None and k == None:
             r = self.colors[j][1]
             g = self.colors[j][2]
             b = self.colors[j][3]
+
         else:
             r = self.colors[k][1]
             g = self.colors[k][2]
             b = self.colors[k][3]
 
-        return format(alpha,'02x')+format(b,'02x')+format(g,'02x')+format(r,'02x')
+        return format(alpha, '02x') + format(b, '02x') + format(g, '02x') + format(r, '02x')
 
     @classmethod
     def from_igc(cls, file_or_filename):
@@ -161,11 +171,14 @@ class Flight(ET.Element):
                 lat = float(a[3]) + float(a[4])/60000
                 if a[5] == "S":
                     lat *= -1
+
                 long = float(a[6]) + float(a[7])/60000
                 if a[8] == "W":
                     long *= -1
+
                 barheight = int(a[10])
                 gpsheight = int(a[11])
+
                 self.time.append(self.date + time)
                 self.lat.append(lat)
                 self.long.append(long)
@@ -199,18 +212,18 @@ class Flight(ET.Element):
         self.barheight = np.array(self.barheight)
         self.gpsheight = np.array(self.gpsheight)
 
-        # WGS84 - http://de.wikipedia.org/wiki/Erdellipsoid
-        a = 6378137.
-        n = 298.257223563 # = 1/f = a/(a-b)
-        b = a*(1-1/n)
-        e = np.sqrt(a**2 - b**2)/a # numerische Exzentrizität
-        N = a/np.sqrt(1-e**2*np.sin(np.radians(self.lat))**2) # Krümmungsradius des Ersten Vertikals
+#       # WGS84 - http://de.wikipedia.org/wiki/Erdellipsoid
+#       a = 6378137.
+#       n = 298.257223563 # = 1/f = a/(a-b)
+#       b = a*(1-1/n)
+#       e = np.sqrt(a**2 - b**2)/a # numerische Exzentrizität
+#       N = a/np.sqrt(1-e**2*np.sin(np.radians(self.lat))**2) # Krümmungsradius des Ersten Vertikals
 
-        self.cart = (
-            (N+self.gpsheight)*np.cos(np.radians(self.lat))*np.cos(np.radians(self.long)),
-            (N+self.gpsheight)*np.cos(np.radians(self.lat))*np.sin(np.radians(self.long)),
-            (N*(1-e**2)+self.gpsheight)*np.sin(np.radians(self.lat)),
-        )
+#       self.cart = (
+#           (N+self.gpsheight)*np.cos(np.radians(self.lat))*np.cos(np.radians(self.long)),
+#           (N+self.gpsheight)*np.cos(np.radians(self.lat))*np.sin(np.radians(self.long)),
+#           (N*(1-e**2)+self.gpsheight)*np.sin(np.radians(self.lat)),
+#       )
 
     def make_tree(self):
         self.clear() # delete old tree
@@ -229,7 +242,7 @@ class Flight(ET.Element):
        #speed *= speed > 0
        #speed = np.sqrt(speed)*3.6
 
-        for d in range(1,len(self.time)):
+        for d in range(1, len(self.time)):
             delta = smooth_height[d] - smooth_height[d-1]
 
             flight = ET.SubElement(folder, 'Placemark')
@@ -287,10 +300,12 @@ def averages(data, N, function):
     return averages
 
 if __name__ == '__main__':
-    import os
+    parser = argparse.ArgumentParser(description='Process a directory with igc files')
+    parser.add_argument('dir', metavar='<dir>', type=str, help='directory')
+    args = parser.parse_args()
+
     flights = FlightLog()
-    # for path, dirs, files in os.walk("/home/sbraun/Documents/Flights/2015"):
-    for path, dirs, files in os.walk("/home/sbraun/Documents/Flights"):
+    for path, dirs, files in os.walk(args.dir):
         for file in files:
             if file[-3:] == "igc":
                 print(file)

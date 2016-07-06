@@ -86,7 +86,6 @@ class Flight(ET.Element):
         self.barheight = []
         self.cart = []
 
-
     def __str__(self):
         r = self.tag
         return r.encode("utf-8")

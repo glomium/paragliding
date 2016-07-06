@@ -5,13 +5,10 @@ from __future__ import unicode_literals
 
 import numpy as np
 import re
-import os
 import xml.etree.ElementTree as ET
 from datetime import datetime
 from datetime import timedelta
 from pytz import utc
-from zipfile import ZipFile
-from zipfile import ZIP_DEFLATED
 
 from .utils import averages
 from .utils import moving

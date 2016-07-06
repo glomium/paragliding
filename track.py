@@ -15,7 +15,9 @@ from zipfile import ZipFile
 from zipfile import ZIP_DEFLATED
 from math import factorial
 
+
 class FlightLog(ET.ElementTree):
+
     def __init__(self):
         root = ET.Element('kml', xmlns="http://earth.google.com/kml/2.1")
         self.document = ET.SubElement(root, 'Document')
@@ -212,18 +214,18 @@ class Flight(ET.Element):
         self.barheight = np.array(self.barheight)
         self.gpsheight = np.array(self.gpsheight)
 
-#       # WGS84 - http://de.wikipedia.org/wiki/Erdellipsoid
-#       a = 6378137.
-#       n = 298.257223563 # = 1/f = a/(a-b)
-#       b = a*(1-1/n)
-#       e = np.sqrt(a**2 - b**2)/a # numerische Exzentrizität
-#       N = a/np.sqrt(1-e**2*np.sin(np.radians(self.lat))**2) # Krümmungsradius des Ersten Vertikals
+        # # WGS84 - http://de.wikipedia.org/wiki/Erdellipsoid
+        # a = 6378137.
+        # n = 298.257223563 # = 1/f = a/(a-b)
+        # b = a*(1-1/n)
+        # e = np.sqrt(a**2 - b**2)/a # numerische Exzentrizität
+        # N = a/np.sqrt(1-e**2*np.sin(np.radians(self.lat))**2) # Krümmungsradius des Ersten Vertikals
 
-#       self.cart = (
-#           (N+self.gpsheight)*np.cos(np.radians(self.lat))*np.cos(np.radians(self.long)),
-#           (N+self.gpsheight)*np.cos(np.radians(self.lat))*np.sin(np.radians(self.long)),
-#           (N*(1-e**2)+self.gpsheight)*np.sin(np.radians(self.lat)),
-#       )
+        # self.cart = (
+        #     (N+self.gpsheight)*np.cos(np.radians(self.lat))*np.cos(np.radians(self.long)),
+        #     (N+self.gpsheight)*np.cos(np.radians(self.lat))*np.sin(np.radians(self.long)),
+        #     (N*(1-e**2)+self.gpsheight)*np.sin(np.radians(self.lat)),
+        # )
 
     def make_tree(self):
         self.clear() # delete old tree
@@ -238,9 +240,9 @@ class Flight(ET.Element):
         name.text = "Trajectory"
 
         smooth_height = averages(self.gpsheight, 20, binom)
-       #speed = np.gradient(t.cart[0])**2 + np.gradient(t.cart[1])**2 + np.gradient(t.cart[2])**2 - np.gradient(t.gpsheight)**2
-       #speed *= speed > 0
-       #speed = np.sqrt(speed)*3.6
+        # speed = np.gradient(t.cart[0])**2 + np.gradient(t.cart[1])**2 + np.gradient(t.cart[2])**2 - np.gradient(t.gpsheight)**2
+        # speed *= speed > 0
+        # speed = np.sqrt(speed)*3.6
 
         for d in range(1, len(self.time)):
             delta = smooth_height[d] - smooth_height[d-1]
@@ -276,11 +278,14 @@ class Flight(ET.Element):
         with open(file, 'w') as f:
             f.write(ET.tostring(root))
 
+
 def moving(N):
     return np.repeat(1.0, N)/N
 
+
 def binom(N):
     return np.array([factorial(N-1)/factorial(i)/factorial(N-1-i)/2.**(N-1) for i in range(N)])
+
 
 def averages(data, N, function):
     if N < 2:
@@ -291,13 +296,16 @@ def averages(data, N, function):
     if len(w) != N:
         print "ERROR"
         exit()
+
     averages = np.convolve(data, w, "same")
     for i in range(0, N/2):
         j = 2*i+1
         w = function(j)
-        averages[i] = np.sum(data[:j]*w)
-        averages[-i-1] = np.sum(data[-j:]*w)
+        averages[i] = np.sum(data[:j] * w)
+        averages[-i-1] = np.sum(data[-j:] * w)
+
     return averages
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Process a directory with igc files')
@@ -318,14 +326,14 @@ if __name__ == '__main__':
     os.remove('test.kml')
     exit()
 
-  # # use gps height for analysis
-  # smooth_height = averages(t.gpsheight, 20, binom)
-  # vario = np.gradient(smooth_height)
+    # # use gps height for analysis
+    # smooth_height = averages(t.gpsheight, 20, binom)
+    # vario = np.gradient(smooth_height)
 
-  # s = np.gradient(t.cart[0])**2 + np.gradient(t.cart[1])**2 + np.gradient(t.cart[2])**2 - np.gradient(t.gpsheight)**2
-  # s *= s>0
-  # s = np.sqrt(s)*3.6
+    # s = np.gradient(t.cart[0])**2 + np.gradient(t.cart[1])**2 + np.gradient(t.cart[2])**2 - np.gradient(t.gpsheight)**2
+    # s *= s>0
+    # s = np.sqrt(s)*3.6
 
-  # b = 0
-  # for d in range(b,len(t.time)-b):
-  #     print '2014-06-01-'+str(t.time[d]), t.gpsheight[d], smooth_height[d], s[d], vario[d]
+    # b = 0
+    # for d in range(b,len(t.time)-b):
+    #     print '2014-06-01-'+str(t.time[d]), t.gpsheight[d], smooth_height[d], s[d], vario[d]

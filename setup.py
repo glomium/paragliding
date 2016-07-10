@@ -5,7 +5,7 @@ from setuptools import setup
 
 CLASSIFIERS = []
 
-VERSION = ("0","1")
+VERSION = ("0", "2")
 __version__ = '.'.join(VERSION)
 __docformat__ = 'restructuredtext'
 

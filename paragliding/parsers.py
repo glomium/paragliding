@@ -73,7 +73,6 @@ class Flight(object):
         ( 1.0, 186, 186,   0),
         ( 2.0, 222,   0,   0),
         ( 4.0, 186,   0, 186),
-        ( 6.0, 255, 255, 255),
     ]
 
     def __init__(self, file_or_filename, name, *args, **kwargs):

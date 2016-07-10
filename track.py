@@ -9,8 +9,8 @@ import os
 from zipfile import ZipFile
 from zipfile import ZIP_DEFLATED
 
-from paragliding import FlightLog
-from paragliding import Flight
+from paragliding.parsers import FlightLog
+from paragliding.parsers import Flight
 
 
 if __name__ == '__main__':
@@ -21,8 +21,8 @@ if __name__ == '__main__':
     flights = FlightLog()
     for path, dirs, files in os.walk(args.dir):
         for file in files:
-            if file[-3:] == "igc":
-                f = Flight.from_igc(os.path.join(path,file))
+            if file[-4:] == ".igc":
+                f = Flight(os.path.join(path, file), file)
                 flights.add_flight(f)
     flights.make_tree()
     flights.write('test.kml')

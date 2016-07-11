@@ -35,17 +35,21 @@ class FlightLog(ET.ElementTree):
     def make_tree(self):
         self.tree = {}
         for flight in self.flights:
+
             year = flight.date.strftime('%Y')
             location = flight.location
             date = flight.date.strftime('%d.%m')
 
-            if not location in self.tree:
-                self.tree[location] = {}
-            if not year in self.tree[location]:
-                self.tree[location][year] = {}
-            if not date in self.tree[location][year]:
-                self.tree[location][year][date] = []
-            self.tree[location][year][date].append(flight)
+            if not year in self.tree:
+                self.tree[year] = {}
+
+            if not location in self.tree[year]:
+                self.tree[year][location] = {}
+
+            if not date in self.tree[year][location]:
+                self.tree[year][location][date] = []
+
+            self.tree[year][location][date].append(flight)
 
         for location in sorted(self.tree.keys()):
             l_folder = ET.SubElement(self.document, 'Folder')

@@ -36,7 +36,7 @@ def parse_igc_file(request, template_name="paragliding/base.html"):
         flight = Flight(file_obj, file_obj.name)
 
         data = ET.tostring(flight.make_tree(
-            ET.Element('kml', xmlns="http://earth.google.com/kml/2.1")
+            ET.Element('kml', xmlns="http://earth.google.com/kml/2.2")
         ))
 
         inmemory_file = StringIO()

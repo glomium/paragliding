@@ -6,6 +6,9 @@ from __future__ import unicode_literals
 import numpy as np
 import re
 import xml.etree.ElementTree as ET
+
+from itertools import combinations
+
 from datetime import datetime
 from datetime import timedelta
 from pytz import utc
@@ -21,7 +24,7 @@ logger = logging.getLogger(__name__)
 class FlightLog(ET.ElementTree):
 
     def __init__(self):
-        root = ET.Element('kml', xmlns="http://earth.google.com/kml/2.1")
+        root = ET.Element('kml', xmlns="http://earth.google.com/kml/2.2")
         self.document = ET.SubElement(root, 'Document')
         self.tree = None
         self.flights = []
@@ -93,10 +96,13 @@ class Flight(object):
 
         self.time = []
         self.lat = []
-        self.long = []
+        self.lon = []
         self.gpsheight = []
         self.barheight = []
         self.cart = []
+
+        self.datapoints = 0
+        self.distances = {}
 
         self.read_igc(file_or_filename)
 
@@ -169,20 +175,20 @@ class Flight(object):
                     timedelta_days += 1
                 time_old = time
 
-                lat = float(a[3]) + float(a[4])/60000
+                lat = float(a[3]) + float(a[4]) / 60000
                 if a[5] == "S":
                     lat *= -1
 
-                long = float(a[6]) + float(a[7])/60000
+                lon = float(a[6]) + float(a[7]) / 60000
                 if a[8] == "W":
-                    long *= -1
+                    lon *= -1
 
                 barheight = int(a[10])
                 gpsheight = int(a[11])
 
                 self.time.append(self.date + time)
                 self.lat.append(lat)
-                self.long.append(long)
+                self.lon.append(lon)
                 self.barheight.append(barheight)
                 self.gpsheight.append(gpsheight)
                 continue
@@ -208,41 +214,159 @@ class Flight(object):
             # TODO only log unparsed entries from igc file
             logger.debug(line.strip())
 
-        self.long = np.array(self.long)
+        self.lon = np.array(self.lon)
         self.lat = np.array(self.lat)
         self.barheight = np.array(self.barheight)
         self.gpsheight = np.array(self.gpsheight)
 
+        self.datapoints = len(self.lon)
+        self.datarange = np.arange(self.datapoints)
+
         file_obj.close()
-
-        # # WGS84 - http://de.wikipedia.org/wiki/Erdellipsoid
-        # a = 6378137.
-        # n = 298.257223563 # = 1/f = a/(a-b)
-        # b = a*(1-1/n)
-        # e = np.sqrt(a**2 - b**2)/a # numerische Exzentrizität
-        # N = a/np.sqrt(1-e**2*np.sin(np.radians(self.lat))**2) # Krümmungsradius des Ersten Vertikals
-
-        # self.cart = (
-        #     (N+self.gpsheight)*np.cos(np.radians(self.lat))*np.cos(np.radians(self.long)),
-        #     (N+self.gpsheight)*np.cos(np.radians(self.lat))*np.sin(np.radians(self.long)),
-        #     (N*(1-e**2)+self.gpsheight)*np.sin(np.radians(self.lat)),
-        # )
 
     def make_tree(self, root):
 
-        folder = ET.SubElement(root, 'Folder')
-        name = ET.SubElement(folder, 'name')
+        root_folder = ET.SubElement(root, 'Folder')
+        name = ET.SubElement(root_folder, 'name')
         name.text = str(self)
+
+        colored_folder = ET.SubElement(root_folder, 'Folder')
+        name = ET.SubElement(colored_folder, 'name')
+        name.text = "Track (colored)"
+
+        mono_folder = ET.SubElement(root_folder, 'Folder')
+        name = ET.SubElement(mono_folder, 'name')
+        name.text = "Tack (mono)"
+
+        shadow_folder = ET.SubElement(root_folder, 'Folder')
+        data = ET.SubElement(shadow_folder, 'name')
+        data.text = "Shadow"
+
+        task_folder = ET.SubElement(root_folder, 'Folder')
+        data = ET.SubElement(task_folder, 'name')
+        data.text = "Task"
+
+        test_folder = ET.SubElement(root_folder, 'Folder')
+        data = ET.SubElement(test_folder, 'name')
+        data.text = "Test"
+
+        # SHADOW
+
+        marker = ET.SubElement(shadow_folder, 'Placemark')
+        data = ET.SubElement(marker, 'name')
+        style = ET.SubElement(marker, 'Style', id="ShadowLine")
+        style = ET.SubElement(style, 'LineStyle')
+        data = ET.SubElement(style, 'color')
+        data.text = '32000000'
+        data = ET.SubElement(style, 'width')
+        data.text = '2.0'
+        coordinates = ET.SubElement(marker, 'LineString')
+        data = ET.SubElement(coordinates, 'tessellate')
+        data.text = '1'
+        data = ET.SubElement(coordinates, 'coordinates')
+        data.text = ' '.join([
+            "%.8f,%.8f,%d" % (
+                self.lon[d],
+                self.lat[d],
+                1,
+            )
+            for d in range(len(self.time))
+        ])
+
+        # Track (mono)
+
+        marker = ET.SubElement(mono_folder, 'Placemark')
+        data = ET.SubElement(marker, 'name')
+        data.text = "Track (mono)"
+        data = ET.SubElement(marker, 'visibility')
+        data.text = "0"
+        style = ET.SubElement(marker, 'Style', id="MonoLine")
+        style = ET.SubElement(style, 'LineStyle')
+        data = ET.SubElement(style, 'color')
+        data.text = 'ff00ff00'
+        data = ET.SubElement(style, 'width')
+        data.text = '1.0'
+        coordinates = ET.SubElement(marker, 'LineString')
+        data = ET.SubElement(coordinates, 'tessellate')
+        data.text = '1'
+        data = ET.SubElement(coordinates, 'altitudeMode')
+        data.text = 'absolute'
+        data = ET.SubElement(coordinates, 'coordinates')
+        data.text = ' '.join([
+            "%.8f,%.8f,%d" % (
+                self.lon[d],
+                self.lat[d],
+                self.gpsheight[d],
+            )
+            for d in range(len(self.time))
+        ])
 
         smooth_height = averages(self.gpsheight, 20, binom)
         # speed = np.gradient(t.cart[0])**2 + np.gradient(t.cart[1])**2 + np.gradient(t.cart[2])**2 - np.gradient(t.gpsheight)**2
         # speed *= speed > 0
         # speed = np.sqrt(speed)*3.6
 
+        # Task
+
+        distance, coords = self.calc_turning_points(3)
+
+        marker = ET.SubElement(task_folder, 'Placemark')
+        data = ET.SubElement(marker, 'name')
+        data.text = "Task %s" % distance
+        data = ET.SubElement(marker, 'visibility')
+        data.text = "1"
+        style = ET.SubElement(marker, 'Style', id="TaskLine")
+        style = ET.SubElement(style, 'LineStyle')
+        data = ET.SubElement(style, 'color')
+        data.text = '64ffffff'
+        data = ET.SubElement(style, 'width')
+        data.text = '2.0'
+        coordinates = ET.SubElement(marker, 'LineString')
+        data = ET.SubElement(coordinates, 'tessellate')
+        data.text = '1'
+        data = ET.SubElement(coordinates, 'coordinates')
+        data.text = ' '.join([
+            "%.8f,%.8f,%d" % (
+                self.lon[d],
+                self.lat[d],
+                1,
+            )
+            for d in coords
+        ])
+
+        for i in range(len(coords)):
+            d = coords[i]
+            marker = ET.SubElement(task_folder, 'Placemark')
+            data = ET.SubElement(marker, 'name')
+            data.text = "TP%s" % (i + 1)
+            data = ET.SubElement(marker, 'visibility')
+            data.text = "1"
+            style = ET.SubElement(marker, 'Style')
+            style = ET.SubElement(style, 'IconStyle')
+            data = ET.SubElement(style, 'scale')
+            data.text = '1'
+            data = ET.SubElement(style, 'Icon')
+            data = ET.SubElement(data, 'href')
+            data.text = 'http://maps.google.com/mapfiles/kml/paddle/grn-circle.png'
+            data = ET.SubElement(style, 'hotSpot', x="32", y="1", xunits="pixels", yunits="pixels")
+            coordinates = ET.SubElement(marker, 'Point')
+            data = ET.SubElement(coordinates, 'extrude')
+            data.text = "1"
+            data = ET.SubElement(coordinates, 'altitudeMode')
+            data.text = "absolute"
+            data = ET.SubElement(coordinates, 'coordinates')
+            data.text = "%.8f,%.8f,%d" % (
+                self.lon[d],
+                self.lat[d],
+                self.gpsheight[d],
+            )
+
+        # Track (color)
+
         for d in range(1, len(self.time)):
             delta = smooth_height[d] - smooth_height[d-1]
 
-            flight = ET.SubElement(folder, 'Placemark')
+            flight = ET.SubElement(colored_folder, 'Placemark')
 
             data = ET.SubElement(flight, 'name')
             # data.text = "%s | %s m | %s km/h | %.1f m/s" % ("time", "alt", "speed", delta)
@@ -252,59 +376,152 @@ class Flight(object):
             data = ET.SubElement(style, 'color')
             data.text = self.color(delta)
             data = ET.SubElement(style, 'width')
-            data.text = "2"
+            data.text = "2.5"
             coord = ET.SubElement(flight, 'LineString')
             data = ET.SubElement(coord, 'tessellate')
             data.text = "1"
             data = ET.SubElement(coord, 'altitudeMode')
             data.text = "absolute"
             data = ET.SubElement(coord, 'coordinates')
-            data.text = "%.7f,%.7f,%d %.7f,%.7f,%d"% (
-                self.long[d-1],
+            data.text = "%.8f,%.8f,%d %.8f,%.8f,%d"% (
+                self.lon[d-1],
                 self.lat[d-1],
                 self.gpsheight[d-1],
-                self.long[d],
+                self.lon[d],
                 self.lat[d],
                 self.gpsheight[d],
             )
 
         return root
 
-#   def write_kml(self, file):
-#       root = ET.Element('kml', xmlns="http://earth.google.com/kml/2.1")
-#       self.make_tree()
-#       root.append(self)
-#       with open(file, 'w') as f:
-#           f.write(ET.tostring(root))
+    def max_turning_points(self, iterator, coords=None, distance=-1, count=0):
+        changed = False
+        keep = set()
+        data = set()
+        for test_coords in iterator:
 
+            for i in test_coords:
+                data.add(i)
 
-#   parser = argparse.ArgumentParser(description='Process a directory with igc files')
-#   parser.add_argument('dir', metavar='<dir>', type=str, help='directory')
-#   args = parser.parse_args()
+            new_distance = self.calc_turning_point_distance(test_coords)
+            if new_distance > distance:
+                coords = test_coords
+                changed = True
+                distance = new_distance
+            elif new_distance > (0.95 + 0.02 * count) * distance:
+                for i in test_coords:
+                    keep.add(i)
 
-#   flights = FlightLog()
-#   for path, dirs, files in os.walk(args.dir):
-#       for file in files:
-#           if file[-3:] == "igc":
-#               print(file)
-#               f = Flight.from_igc(os.path.join(path,file))
-#               flights.add_flight(f)
-#   flights.make_tree()
-#   flights.write('test.kml')
-#   with ZipFile('text.kmz', 'w', ZIP_DEFLATED) as myzip:
-#       myzip.write('test.kml')
-#   os.remove('test.kml')
-#   exit()
+        return coords, distance, keep, data, changed
 
-#   # use gps height for analysis
-#   smooth_height = averages(t.gpsheight, 20, binom)
-#   vario = np.gradient(smooth_height)
+    def calc_turning_points(self, points, guess=0, maxiter=20):
+        count = 0
+        if guess < points + 2:
+            guess = points + 2
+        coords, distance, keep, data, changed = self.max_turning_points(
+            combinations(
+                np.uint16(np.arange(guess) * (self.datapoints - 1) / (guess - 1)), points + 2
+            )
+        )
+        keep = set()
+        data = set()
 
-#   s = np.gradient(t.cart[0])**2 + np.gradient(t.cart[1])**2 + np.gradient(t.cart[2])**2 - np.gradient(t.gpsheight)**2
-#   s *= s>0
-#   s = np.sqrt(s)*3.6
+        while changed and count < maxiter:
+            iter_coords = keep.copy()
+            for n in range(len(coords)):
 
-#   b = 0
-#   for d in range(b,len(t.time)-b):
-#       print '2014-06-01-'+str(t.time[d]), t.gpsheight[d], smooth_height[d], s[d], vario[d]
+                j = coords[n]
+                if n == 0:
+                    i = 0
+                    k = coords[n + 1]
+                elif n == (len(coords) - 1):
+                    i = coords[n - 1]
+                    k = self.datapoints - 1
+                else:
+                    i = coords[n - 1]
+                    k = coords[n + 1]
 
+                dist_i = self.get_distances(i)
+                dist_j = self.get_distances(j)
+                dist_k = self.get_distances(k)
+
+                iter_coords.add(j)
+
+                n_ik = (np.argmax((dist_i[i:k+1] + dist_k[i:k+1])) + i)
+                iter_coords.add(n_ik)
+
+                if n == 0:
+                    n_k = np.argmax(dist_k[0:k+1])
+                    iter_coords.add(n_k)
+                elif n == (len(coords) - 1):
+                    n_i = np.argmax(dist_i[i:k + 1]) + i
+                    iter_coords.add(n_i)
+
+                if i < j:
+                    n_ij = (np.argmax((dist_i[i:j+1] + dist_j[i:j+1])) + i)
+                    iter_coords.add(n_ij)
+
+                if j < k:
+                    n_jk = (np.argmax((dist_j[j:k+1] + dist_k[j:k+1])) + j)
+                    iter_coords.add(n_jk)
+
+            if not bool(iter_coords - data):
+                # no new items to process
+                logger.info("no new items to process")
+                break
+
+            coords, distance, keep, data, changed = self.max_turning_points(
+                combinations(sorted(iter_coords), points + 2), coords, distance, count
+            )
+            count += 1
+
+        return self.calc_turning_point_distance(coords), coords
+
+    def calc_turning_point_distance(self, coords):
+        d = 0
+        for n in range(len(coords) - 1):
+            i = coords[n]
+            j = coords[n+1]
+            d += self.get_distances(i)[j]
+        return d
+
+    def get_distances(self, i):
+        if i in self.distances.keys():
+            return self.distances[i]
+        self.distances[i] = np.zeros(self.datapoints, np.float64)
+        for n in range(self.datapoints):
+            self.distances[i][n] = self.calc_distance(i, n)
+        return self.distances[i]
+
+    def calc_FAI_distance(self, i, j):
+        # FAI earth-radius in meter
+        R = 6371000.0
+
+        latx = np.radians(self.lat[i])
+        lonx = np.radians(self.lon[i])
+
+        laty = np.radians(self.lat[j])
+        lony = np.radians(self.lon[j])
+
+        sinlat = np.sin((latx-laty)/2)
+        sinlon = np.sin((lonx-lony)/2)
+
+        return 2 * R * np.arcsin(np.sqrt(
+            sinlat * sinlat + sinlon * sinlon * np.cos(latx) * np.cos(laty)
+        ))
+
+    def calc_distance(self, i, j):
+        return self.calc_FAI_distance(i, j)
+
+        # # WGS84 - http://de.wikipedia.org/wiki/Erdellipsoid
+        # a = 6378137.
+        # n = 298.257223563 # = 1/f = a/(a-b)
+        # b = a*(1-1/n)
+        # e = np.sqrt(a**2 - b**2)/a # numerische Exzentrizität
+        # N = a/np.sqrt(1-e**2*np.sin(np.radians(self.lat))**2) # Krümmungsradius des Ersten Vertikals
+
+        # self.cart = (
+        #     (N+self.gpsheight)*np.cos(np.radians(self.lat))*np.cos(np.radians(self.lon)),
+        #     (N+self.gpsheight)*np.cos(np.radians(self.lat))*np.sin(np.radians(self.lon)),
+        #     (N*(1-e**2)+self.gpsheight)*np.sin(np.radians(self.lat)),
+        # )

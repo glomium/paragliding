@@ -230,25 +230,35 @@ class Flight(object):
         name = ET.SubElement(root_folder, 'name')
         name.text = str(self)
 
-        colored_folder = ET.SubElement(root_folder, 'Folder')
-        name = ET.SubElement(colored_folder, 'name')
-        name.text = "Track (colored)"
+        tracks_folder = ET.SubElement(root_folder, 'Folder')
+        data = ET.SubElement(tracks_folder, 'name')
+        data.text = "Tracks"
+        data = ET.SubElement(tracks_folder, 'open')
+        data.text = "1"
+        style = ET.SubElement(tracks_folder, 'Style')
+        style = ET.SubElement(style, 'ListStyle')
+        data = ET.SubElement(style, 'listItemType')
+        data.text = "radioFolder"
+        data = ET.SubElement(style, 'bgColor')
+        data.text = "00ffffff"
+        data = ET.SubElement(style, 'maxSnippetLines')
+        data.text = "2"
 
-        mono_folder = ET.SubElement(root_folder, 'Folder')
-        name = ET.SubElement(mono_folder, 'name')
-        name.text = "Tack (mono)"
+        colored_folder = ET.SubElement(tracks_folder, 'Folder')
+        data = ET.SubElement(colored_folder, 'name')
+        data.text = "Colored"
+        data = ET.SubElement(colored_folder, 'visibility')
+        data.text = "1"
+
+        mono_folder = ET.SubElement(tracks_folder, 'Folder')
+        data = ET.SubElement(mono_folder, 'name')
+        data.text = "Mono (green)"
+        data = ET.SubElement(mono_folder, 'visibility')
+        data.text = "0"
 
         shadow_folder = ET.SubElement(root_folder, 'Folder')
         data = ET.SubElement(shadow_folder, 'name')
         data.text = "Shadow"
-
-        task_folder = ET.SubElement(root_folder, 'Folder')
-        data = ET.SubElement(task_folder, 'name')
-        data.text = "Task"
-
-        test_folder = ET.SubElement(root_folder, 'Folder')
-        data = ET.SubElement(test_folder, 'name')
-        data.text = "Test"
 
         # SHADOW
 
@@ -277,7 +287,7 @@ class Flight(object):
 
         marker = ET.SubElement(mono_folder, 'Placemark')
         data = ET.SubElement(marker, 'name')
-        data.text = "Track (mono)"
+        data.text = "Mono (green)"
         data = ET.SubElement(marker, 'visibility')
         data.text = "0"
         style = ET.SubElement(marker, 'Style', id="MonoLine")
@@ -305,61 +315,6 @@ class Flight(object):
         # speed = np.gradient(t.cart[0])**2 + np.gradient(t.cart[1])**2 + np.gradient(t.cart[2])**2 - np.gradient(t.gpsheight)**2
         # speed *= speed > 0
         # speed = np.sqrt(speed)*3.6
-
-        # Task
-
-        distance, coords = self.calc_turning_points(3)
-
-        marker = ET.SubElement(task_folder, 'Placemark')
-        data = ET.SubElement(marker, 'name')
-        data.text = "Task %s" % distance
-        data = ET.SubElement(marker, 'visibility')
-        data.text = "1"
-        style = ET.SubElement(marker, 'Style', id="TaskLine")
-        style = ET.SubElement(style, 'LineStyle')
-        data = ET.SubElement(style, 'color')
-        data.text = '64ffffff'
-        data = ET.SubElement(style, 'width')
-        data.text = '2.0'
-        coordinates = ET.SubElement(marker, 'LineString')
-        data = ET.SubElement(coordinates, 'tessellate')
-        data.text = '1'
-        data = ET.SubElement(coordinates, 'coordinates')
-        data.text = ' '.join([
-            "%.8f,%.8f,%d" % (
-                self.lon[d],
-                self.lat[d],
-                1,
-            )
-            for d in coords
-        ])
-
-        for i in range(len(coords)):
-            d = coords[i]
-            marker = ET.SubElement(task_folder, 'Placemark')
-            data = ET.SubElement(marker, 'name')
-            data.text = "TP%s" % (i + 1)
-            data = ET.SubElement(marker, 'visibility')
-            data.text = "1"
-            style = ET.SubElement(marker, 'Style')
-            style = ET.SubElement(style, 'IconStyle')
-            data = ET.SubElement(style, 'scale')
-            data.text = '1'
-            data = ET.SubElement(style, 'Icon')
-            data = ET.SubElement(data, 'href')
-            data.text = 'http://maps.google.com/mapfiles/kml/paddle/grn-circle.png'
-            data = ET.SubElement(style, 'hotSpot', x="32", y="1", xunits="pixels", yunits="pixels")
-            coordinates = ET.SubElement(marker, 'Point')
-            data = ET.SubElement(coordinates, 'extrude')
-            data.text = "1"
-            data = ET.SubElement(coordinates, 'altitudeMode')
-            data.text = "absolute"
-            data = ET.SubElement(coordinates, 'coordinates')
-            data.text = "%.8f,%.8f,%d" % (
-                self.lon[d],
-                self.lat[d],
-                self.gpsheight[d],
-            )
 
         # Track (color)
 

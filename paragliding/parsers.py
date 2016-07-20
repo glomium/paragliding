@@ -267,7 +267,7 @@ class Flight(object):
         style = ET.SubElement(marker, 'Style', id="ShadowLine")
         style = ET.SubElement(style, 'LineStyle')
         data = ET.SubElement(style, 'color')
-        data.text = '32000000'
+        data.text = '48000000'
         data = ET.SubElement(style, 'width')
         data.text = '2.0'
         coordinates = ET.SubElement(marker, 'LineString')

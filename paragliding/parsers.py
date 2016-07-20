@@ -320,6 +320,7 @@ class Flight(object):
 
         for d in range(1, len(self.time)):
             delta = smooth_height[d] - smooth_height[d-1]
+            self.calc_bearing(d - 1, d)
 
             flight = ET.SubElement(colored_folder, 'Placemark')
 
@@ -439,6 +440,23 @@ class Flight(object):
             j = coords[n+1]
             d += self.get_distances(i)[j]
         return d
+
+    def calc_bearing(self, i, j):
+        if i == j:
+            return False, 0
+
+        if self.calc_distance(i, j) < 2.5:
+            # print "FALSE", self.calc_distance(i, j)
+            return False, 0
+
+        # x = cos(φ1)*sin(φ2) - sin(φ1)*cos(φ2)*cos(λ2-λ1)
+        x = np.cos(self.lat[i]) * np.sin(self.lat[j]) - np.sin(self.lat[i]) * np.cos(self.lat[j]) * np.cos(self.lon[j] - self.lon[i])
+        # y = sin(λ2-λ1) * cos(φ2)
+        y = np.sin(self.lon[j] - self.lon[i]) * np.cos(self.lat[j])
+        # normalise the result to a compass bearing, cause atan2 returns values in the range -pi .. +pi
+        value = (180 * np.arctan2(x, y) / np.pi + 360) % 360
+        # print value, x, y
+        return True, value
 
     def get_distances(self, i):
         if i in self.distances.keys():

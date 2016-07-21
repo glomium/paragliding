@@ -458,6 +458,8 @@ class Flight(object):
         # print value, x, y
         return True, value
 
+        # difference in bearing: ((delta + 180) % 360) - 180
+
     def get_distances(self, i):
         if i in self.distances.keys():
             return self.distances[i]
